@@ -51,8 +51,9 @@ public class MWStart extends Activity {
 	private SharedPreferences options;
 	private ArrayAdapter<BluetoothDevice> deviceSelectionAdapter;
 	private boolean brainLinkMode = false;
-	private static final byte[] UPSCALED02 = new byte[] {0x00, 0x7E, 0x00, 0x00, 0x00, (byte)0xF8};
-
+	private static final byte[] UPSCALED02ALT = new byte[] {0x00, 0x7E, 0x00, 0x00, 0x00, (byte)0xF8};
+	private static final byte[] UPSCALED02 = new byte[] {0x00, (byte)0xF8, 0x00, 0x00, 0x00, (byte)0xE0};
+	
 	private void message(final String s) {
 		runOnUiThread(new Runnable() {
 			
@@ -261,6 +262,7 @@ public class MWStart extends Activity {
 						os.write(new byte[] { '*', 'u', '5', '7', 'Z' });
 						sleep(200);
 						os.write(UPSCALED02);
+						sleep(2);
 					}
 					
 					done = needPowercycle;
@@ -273,7 +275,8 @@ public class MWStart extends Activity {
 					for (int j = 0 ; ! test && j < 2 ; j++ ) {
 						publishProgress("Error verifying, trying again");
 						Log.v("MWStart", "retrying");
-						os.write(UPSCALED02);
+						os.write(j == 0 ? UPSCALED02ALT : UPSCALED02);
+						sleep(2);
 						clearBuffer(is);
 						readWithTimeout(is, data512, 2000);
 						test = testTG(data512);
