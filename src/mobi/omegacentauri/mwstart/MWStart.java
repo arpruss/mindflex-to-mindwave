@@ -3,6 +3,7 @@ package mobi.omegacentauri.mwstart;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -25,6 +26,7 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.StateListDrawable;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.Log;
@@ -48,6 +50,8 @@ public class MWStart extends Activity {
 	private ListView deviceList;
 	private SharedPreferences options;
 	private ArrayAdapter<BluetoothDevice> deviceSelectionAdapter;
+	private boolean brainLinkMode = false;
+	private static final byte[] UPSCALED02 = new byte[] {0x00, 0x7E, 0x00, 0x00, 0x00, (byte)0xF8};
 
 	private void message(final String s) {
 		runOnUiThread(new Runnable() {
@@ -91,10 +95,18 @@ public class MWStart extends Activity {
 	}
 	
 	protected boolean testTG(byte[] data) {
-		for (int i = 0 ; i < data.length - 4 ; i++) {
+//		for (int i = 0 ; i < data.length ; i += 16) {
+//			String out = "";
+//			for (int j = 0 ; i + j < data.length ; j++)
+//				out += String.format("%02x ", data[i+j]);
+//			Log.v("MWStart", out);
+//		}
+		for (int i = 0 ; i < data.length - 8 ; i++) {
 			int len;
-			if (data[i] == (byte)0xAA && data[i+1] == (byte)0xAA && (len = 0xFF&(int)data[i+2]) < 170 ) {
-				Log.v("MWStart", "found AA AA at "+i);
+			if (data[i] == (byte)0xAA && data[i+1] == (byte)0xAA && (len = 0xFF&(int)data[i+2]) == 4 && 
+					data[i+3] == (byte)0x80
+					) {
+				Log.v("MWStart", "found AA AA 04 80 at "+i);
 				if (i + len + 3 >= data.length) 
 					continue;
 				byte sum = 0;
@@ -224,44 +236,57 @@ public class MWStart extends Activity {
 					publishProgress("Connecting");
 					needPowercycle = false;
 					Log.v("MWStart", "getting output stream");
-					sock = device[0].createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
-					sock.connect();
-					try {
-						Thread.sleep(50);
-					} catch (InterruptedException e) {
+					if (Build.VERSION.SDK_INT >= 10)
+						sock = device[0].createInsecureRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+					else {
+						Method m;
+						try {
+							m = device.getClass().getMethod("createInsecureRfcommSocket", new Class[] {int.class});
+							sock = (BluetoothSocket) m.invoke(device[0], 1);
+						}
+						catch (Exception e) {
+							sock = device[0].createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+						}
 					}
-					Log.v("MWStart", "getting output stream");
+					sock.connect();
+					sleep(50);
 					os = sock.getOutputStream();
 					publishProgress("Setting up link");
-					os.write(new byte[] { '*' });
-					try {
-						Thread.sleep(50);
-					} catch (InterruptedException e) {
+					
+					if (brainLinkMode) {
+						needPowercycle = true;
+						os.write(new byte[] { '*', 'u', '9', '6', 't', 1, 0x02, 'u', '5', '7', 'Z' });
 					}
-					publishProgress("Setting speed");
-					os.write(new byte[] { 'C', 0, (byte)135, -2 });
-					needPowercycle = true;
-					try {
-						Thread.sleep(50);
-					} catch (InterruptedException e) {
+					else {
+						os.write(new byte[] { '*', 'u', '5', '7', 'Z' });
+						sleep(200);
+						os.write(UPSCALED02);
 					}
-					publishProgress("Turning on serial bridge");
-					os.write(new byte[] { 'Z' });
-					try {
-						Thread.sleep(50);
-					} catch (InterruptedException e) {
-					}
-					os.write(new byte[] { 2 });
-					needPowercycle = true;
-					publishProgress("Testing connection");
+					
+					done = needPowercycle;
+					publishProgress("Verifying connection");
 					is = sock.getInputStream();
+					clearBuffer(is);
 					byte[] data512 = new byte[512]; 
-					readWithTimeout(is, data512, 5000);
-					error = testTG(data512) ? "Successful initiation!" : "Cannot read valid data.";
+					readWithTimeout(is, data512, 2000);
+					boolean test = testTG(data512);
+					for (int j = 0 ; ! test && j < 2 ; j++ ) {
+						publishProgress("Error verifying, trying again");
+						Log.v("MWStart", "retrying");
+						os.write(UPSCALED02);
+						clearBuffer(is);
+						readWithTimeout(is, data512, 2000);
+						test = testTG(data512);
+					}
+					error = test ? "Successful initiation!" : "Cannot read valid data.";
 					done = true;
 				} catch (IOException e) {
 					Log.v("MWStart", "Error "+e+".");
 					error = "Error: "+e+".";
+					if (i + 1 < 3 && !done && !needPowercycle) {
+						publishProgress("Error, will try again");
+						sleep(1000);
+					}
 				} finally {
 					if (os != null)
 						try {
@@ -290,5 +315,21 @@ public class MWStart extends Activity {
 			progressDialog.dismiss();
 		}
 		
+	}
+
+	public static void clearBuffer(InputStream is) {
+		int avail;
+		try {
+			avail = is.available();
+			is.skip(avail);		
+		} catch (IOException e) {
+		}
+	}
+
+	public static void sleep(int ms) {
+		try {
+			Thread.sleep(ms);
+		} catch (InterruptedException e2) {
+		}
 	}
 }
