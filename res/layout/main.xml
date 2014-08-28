@@ -6,6 +6,24 @@
     android:orientation="vertical" >
 
     <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="18sp"
+        android:layout_marginBottom="18sp"
+        android:text="Instructions:\r\n1. Make sure your Bluetooth bridge device is paired.\r\n2. Connect bridge device, and turn on headset and bridge device.\r\n3. Choose Bluetooth bridge device from list.\r\n4. Tap Activate." />
+    
+    <Spinner
+        android:id="@+id/device_spinner"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        />
+    
+    <LinearLayout android:layout_width="fill_parent"
+        android:layout_height="0px"
+        android:layout_weight="1" 
+        />
+    
+    <TextView
         android:id="@+id/message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -13,15 +31,7 @@
         android:layout_marginBottom="18sp"
         android:text="" />
     
-    <ListView 
-        android:id="@+id/devices"
-        android:layout_width="wrap_content"
-        android:layout_height="0px"
-        android:layout_weight="1"
-        android:choiceMode="singleChoice"
-        />
-    
-        <Button
+    <Button
             android:id="@+id/go"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

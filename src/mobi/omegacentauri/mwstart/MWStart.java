@@ -46,11 +46,11 @@ public class MWStart extends Activity {
 	private static final String PREF_LAST_DEVICE = "lastDevice";
 	private BluetoothAdapter btAdapter;
 	private TextView message;
-	private Button goButton;
-	private ListView deviceList;
 	private SharedPreferences options;
-	private ArrayAdapter<BluetoothDevice> deviceSelectionAdapter;
+	private ArrayAdapter<String> deviceSelectionAdapter;
 	private boolean brainLinkMode = false;
+	private Spinner deviceSpinner;
+	private ArrayList<BluetoothDevice> devs;
 	private static final byte[] UPSCALED02ALT = new byte[] {0x00, 0x7E, 0x00, 0x00, 0x00, (byte)0xF8};
 	private static final byte[] UPSCALED02 = new byte[] {0x00, (byte)0xF8, 0x00, 0x00, 0x00, (byte)0xE0};
 	
@@ -65,8 +65,7 @@ public class MWStart extends Activity {
 		setContentView(R.layout.main);
 		
 		message = (TextView)findViewById(R.id.message);
-		goButton = (Button)findViewById(R.id.go);
-		deviceList = (ListView)findViewById(R.id.devices);
+		deviceSpinner = (Spinner)findViewById(R.id.device_spinner);
 	}
 	
 	@Override
@@ -75,14 +74,13 @@ public class MWStart extends Activity {
 	}
 	
 	public void clickedOn(View v) {
-		for (int i = 0 ; i < deviceList.getCount(); i++) {
-			if (deviceList.isItemChecked(i)) {
-				new InitializeTask(this).execute(deviceSelectionAdapter.getItem(i));
-				return;
-			}
+		int pos = deviceSpinner.getSelectedItemPosition();
+		if (pos < 0) {
+			Toast.makeText(this, "Select a device", Toast.LENGTH_LONG).show();
 		}
-		
-		Toast.makeText(this, "Select a device", Toast.LENGTH_LONG).show();
+		else {
+			new InitializeTask(this).execute(devs.get(pos));
+		}
 	}
 	
 	protected boolean testTG(InputStream is) {
@@ -148,62 +146,41 @@ public class MWStart extends Activity {
 	public void onResume() {
 		super.onResume();
 		btAdapter = BluetoothAdapter.getDefaultAdapter();
-		final List<BluetoothDevice> devs = new ArrayList<BluetoothDevice>();
+		devs = new ArrayList<BluetoothDevice>();
 		devs.addAll(btAdapter.getBondedDevices());
 		Collections.sort(devs, new Comparator<BluetoothDevice>(){
-
 			@Override
 			public int compare(BluetoothDevice lhs, BluetoothDevice rhs) {
 				return String.CASE_INSENSITIVE_ORDER.compare(lhs.getName(), rhs.getName());
 			}});
+		ArrayList<String> devLabels = new ArrayList<String>();
+		for (BluetoothDevice d : devs) 
+			devLabels.add(d.getName()+" ("+d.getAddress()+")");
 		
-		deviceSelectionAdapter = new ArrayAdapter<BluetoothDevice>(this, 
-				R.id.devices, devs) {
-			public View getView(int position, View convertView, ViewGroup parent) {
-				View v;				
-
-				if (convertView == null) {
-					v = View.inflate(MWStart.this, android.R.layout.two_line_list_item, null);
-				}
-				else {
-					v = convertView;
-				}
-				
-				if (deviceList.isItemChecked(position)) {
-					v.setBackgroundColor(Color.BLUE);
-				}
-				else {
-					v.setBackgroundColor(Color.BLACK);
-				}
-				
-				BluetoothDevice dev = getItem(position);
-				TextView line1 = (TextView)v.findViewById(android.R.id.text1);
-				line1.setText(dev.getName());
-				TextView line2 = (TextView)v.findViewById(android.R.id.text2);
-				line2.setText(dev.getAddress());
-				
-				return v;
-			}
-
-
-		};
-		deviceList.setAdapter(deviceSelectionAdapter);
+		deviceSelectionAdapter = new ArrayAdapter<String>(this, 
+				android.R.layout.simple_spinner_item, devLabels);
+		deviceSelectionAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		deviceSpinner.setAdapter(deviceSelectionAdapter);
 		String lastDev = options.getString(PREF_LAST_DEVICE, "(none)");
 		for (int i = 0 ; i < devs.size() ; i++) {
-			deviceList.setItemChecked(i, devs.get(i).getAddress().equals(lastDev));
+			if (devs.get(i).getAddress().equals(lastDev))
+				deviceSpinner.setSelection(i);
 		} 
-		Log.v("MWStart", "selection "+deviceList.getSelectedItemPosition());
 		
-		deviceList.setOnItemClickListener(new ListView.OnItemClickListener() {
+		deviceSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
 
 			@Override
-			public void onItemClick(AdapterView<?> parent, View view,
+			public void onItemSelected(AdapterView<?> arg0, View arg1,
 					int position, long arg3) {
-				options.edit().putString(PREF_LAST_DEVICE, deviceSelectionAdapter.getItem(position).getAddress()).commit();				
-				deviceList.setItemChecked(position, true);
+				options.edit().putString(PREF_LAST_DEVICE, devs.get(position).getAddress()).commit();				
+			}
+
+			@Override
+			public void onNothingSelected(AdapterView<?> arg0) {
+				// TODO Auto-generated method stub
+				
 			}
 		});
-		deviceList.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
 	}
 	
 	class InitializeTask extends AsyncTask<BluetoothDevice, String, String>{
