@@ -181,6 +181,12 @@ public class MWStart extends Activity {
 				
 			}
 		});
+		if (devs.size()==0) {
+			message.setText("Bluetooth turned off or device not paired.");
+		}
+		else {
+			message.setText("");	
+		}
 	}
 	
 	class InitializeTask extends AsyncTask<BluetoothDevice, String, String>{

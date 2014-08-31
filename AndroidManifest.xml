@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       android:versionCode="1"
-      android:versionName="0.01" package="mobi.omegacentauri.mwstart">
+      android:versionName="1.00" package="mobi.omegacentauri.mwstart">
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <!--  <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/> -->
-    <application android:label="MindWave Emulate"
+    <application android:label="Mindflex to Mindwave Mobile"
+            android:icon="@drawable/icon"
     >
         <activity android:name=".MWStart"
-            android:label="MindWave Emulate"
+            android:icon="@drawable/icon"
+            android:label="Mindflex to Mindwave Mobile"
                               android:configChanges="keyboard|keyboardHidden|orientation"
                   android:launchMode="singleTask">
             <intent-filter>
@@ -16,5 +18,5 @@
             </intent-filter>
         </activity>
     </application>
-    <uses-sdk android:minSdkVersion="8" />
+    <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="17"/>
 </manifest>
